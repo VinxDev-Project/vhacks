@@ -1,0 +1,1 @@
+open("assets/session/exit", "w").write("")
