@@ -1,0 +1,212 @@
+#!/usr/bin/python
+#coding: utf-8
+
+import os, sys, json, base64, getpass, hashlib, cryptography
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from faker import Faker as gen
+sys.path.append(os.path.abspath("assets"))
+import vhacks
+
+url = "http://localhost:4040/api"
+ver = "v1.0.0"
+key = AESGCM(AESGCM.generate_key(bit_length=256))
+
+# print(
+#     json.dumps(
+#         vhacks.Apps(url).addDataUsers("alvian", "alvianvian123"),
+#         indent=2
+#     )
+# )
+
+# print(
+#     json.dumps(
+#         vhacks.Apps(url).getDataUsers(),
+#         indent=2
+#     )
+# )
+
+vhacks.Console.log("!", "Note: This system is just for playing and feeling the sensation of being a hacker, but remember this system cannot be used to become a real hacker")
+vhacks.Console.loading(f"Starting the vhacks console {ver}")
+
+def saveData(**data):
+    try:
+        dataUser = json.loads(vhacks.System("assets/data").loadData("type:data"))
+        for i in data:
+            dataUser[i] = data[i]
+        save = open("assets/data", "wb").write(
+            vhacks.key.encrypt(
+                vhacks.nonce,
+                str(
+                    json.dumps(
+                        dataUser
+                    )
+                ).encode(),
+                str("type:data").encode()
+            )
+        )
+        return {
+            "success": True,
+            "msg": "Data saved successfully"
+        }
+    except KeyError:
+        return {
+            "success": False,
+            "msg": "Failed to save data"
+        }
+
+def vhacksPrompt(user):
+    open("assets/data", "wb").write(
+        vhacks.key.encrypt(
+            vhacks.nonce,
+            str(
+                json.dumps(
+                    vhacks.Apps(vhacks.url).getDataWithUsername(user)["data"]
+                )
+            ).encode(),
+            str("type:data").encode()
+        )
+    )
+    loadData = json.loads(vhacks.System("assets/data").loadData("type:data"))
+    #banner
+    print()
+    print(f"      =[ vhacks {vhacks.ver}                                          ]")
+    print(f"                                                                ]")
+    print(f"\033[A+-- --=[ Your IP Address: {loadData['ipAddress']} (Don'ts share it)")
+    print()
+    while True:
+        loadData = json.loads(vhacks.System("assets/data").loadData("type:data"))
+        prompt = str(input(f"vhacks > ")).split()
+        try:
+            if prompt[0] == "exit" or prompt[0] == "quit":
+                loadData = json.loads(vhacks.System("assets/data").loadData("type:data"))
+                saveDataUser = vhacks.Apps(vhacks.url).updateDataUsers(
+                    username = loadData["username"],
+                    password = loadData["password"],
+                    otpCode = loadData["otpCode"],
+                    ipAddress = loadData["ipAddress"],
+                    macAddress = loadData["macAddress"],
+                    vCoin = loadData["vCoin"],
+                    vRam = loadData["vRam"],
+                    vRamUsed = loadData["vRamUsed"],
+                    vDisk = loadData["vDisk"],
+                    vDiskUsed = loadData["vDiskUsed"],
+                    vShell = loadData["vShell"],
+                    vBin = loadData["vBin"]
+                )
+                if saveDataUser["success"] != True:
+                    vhacks.Console.log("!", saveData["msg"])
+                sys.exit()
+            elif prompt[0] == "change":
+                try:
+                    if prompt[1] == "ipaddress" or prompt[1] == "-ia":
+                        newIpAddress = gen().ipv4()
+                        save = saveData(ipAddress=newIpAddress)
+                        if save["success"]:
+                            vhacks.Console.log("+", save["msg"])
+                    else:
+                        vhacks.Console.log("!", f"Unknown data '{prompt[1]}'")
+                except IndexError:
+                    print("Usage: change [data]")
+            else:
+                vhacks.Console.log("!", f"Unknown command '{prompt[0]}'")
+        except IndexError:
+            pass
+
+def main():
+    if os.path.exists("assets/session"):
+        try:
+            session = open("assets/session", "rb").read()
+            dataSession = json.loads(
+                vhacks.key.decrypt(
+                    vhacks.nonce,
+                    session,
+                    str("data:session").encode()
+                )
+            )
+            vhacksPrompt(dataSession["username"])
+        except cryptography.exceptions.InvalidTag:
+            vhacks.Console.log("!", "Exit the session")
+            while True:
+                os.system("clear")
+                print()
+                print("\t\033[1;37m[ VHACKS.LOGIN ]")
+                print()
+                username = str(input("\033[1;34m[?] \033[1;37mUsername: "))
+                if vhacks.Apps(vhacks.url).getDataWithUsername(username)["success"]:
+                    break
+                else:
+                    vhacks.Console.log("!", "Username not registered")
+
+            while True:
+                os.system("clear")
+                print()
+                print("\t\033[1;37m[ VHACKS.LOGIN ]")
+                print()
+                print(f"\033[1;34m[?] \033[1;37mUsername: {username}")
+                password = getpass.getpass("\033[1;34m[?] \033[1;37mPassword: ")
+                if hashlib.md5(password.encode()).hexdigest() == vhacks.Apps(vhacks.url).getDataWithUsername(username)["data"]["password"]:
+                    data = json.dumps(
+                        {
+                            "username": username,
+                            "password": password
+                        }
+                    )
+                    open("assets/session", "wb").write(
+                        vhacks.key.encrypt(
+                            vhacks.nonce,
+                            str(data).encode(),
+                            str("data:session").encode()
+                        )
+                    )
+                    vhacks.Console.log("+", "Signed in successfully")
+                    break
+                else:
+                    vhacks.Console.log("!", "Incorrect password")
+            vhacksPrompt(username)
+    else:
+        while True:
+            os.system("clear")
+            print()
+            print("\t\033[1;37m[ VHACKS.REGISTER ]")
+            print()
+            newUsername = str(input("\033[1;34m[?] \033[1;37mNew username: "))
+            if vhacks.Apps(url).getDataWithUsername(newUsername)["success"] != True:
+                break
+            else:
+                vhacks.Console.log("!", "Username already in use!")
+        
+        while True:
+            os.system("clear")
+            print()
+            print("\t\033[1;37m[ VHACKS.REGISTER ]")
+            print()
+            print(f"\033[1;34m[?] \033[1;37mNew username: {newUsername}")
+            newPassword = getpass.getpass("\033[1;34m[?] \033[1;37mNew Password: ")
+            if len(newPassword) > 7:
+                if vhacks.Apps(url).addDataUsers(newUsername, newPassword)["success"]:
+                    data = json.dumps(
+                        {
+                            "username": newUsername,
+                            "password": newPassword
+                        }
+                    )
+                    open("assets/session", "wb").write(
+                        vhacks.key.encrypt(
+                            vhacks.nonce,
+                            str(
+                                data
+                            ).encode(),
+                            str("data:session").encode()
+                        )
+                    )
+                    vhacks.Console.log("+", "Registered successfully")
+                    break
+                else:
+                    vhacks.Console.log("!", "Internal server error")
+            else:
+                vhacks.Console.log("!", "Password is too short")
+        
+        vhacksPrompt(newUsername)
+
+if __name__ == "__main__":
+    main()
