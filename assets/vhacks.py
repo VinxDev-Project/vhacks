@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #coding: utf-8
 
-import os, sys, time, datetime, itertools, base64, hashlib, requests, json, pwinput, getpass, random
+import os, sys, time, datetime, itertools, base64, hashlib, requests, json, pwinput, getpass, random, math
 
 from datetime import datetime 
 from faker import Faker as gen
@@ -13,7 +13,27 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 url = "http://localhost:4040/api"
 key = AESGCM(AESGCM.generate_key(bit_length=256))
 nonce = os.urandom(12)
-ver = "v1.0.0"
+ver = "v1.0.3"
+
+array = []
+class auto(object):
+	def __init__(self, options):
+		self.options = sorted(options)
+		
+	def complete(self, text, state):
+		if state == 0:
+			if text:
+				self.matches = [s for s in self.options if s and s.startswith(text)]
+			else :
+				self.matches = self.options[:]
+		try:
+			return self.matches[state]
+		except IndexError:
+			return None
+def complete(array):
+	completer = auto(array)
+	readline.set_completer(completer.complete)
+	readline.parse_and_bind("tab:complete")
 
 class Apps:
     def __init__(self, url):
@@ -67,7 +87,7 @@ class Apps:
                 "msg": "Internal server error"
             }
 
-    def addDataUsers(self, username, password):
+    def addDataUsers(self, username, password, server):
         try:
             return requests.post(
                 f"{self.url}/post/users",
@@ -76,7 +96,8 @@ class Apps:
                     "password": password,
                     "otpCode": random.randint(100000000, 999999999),
                     "ipAddress": gen().ipv4(),
-                    "macAddress": gen().mac_address()
+                    "macAddress": gen().mac_address(),
+                    "vServer": server
                 }
             ).json()
         except requests.exceptions.JSONDecodeError:
@@ -119,6 +140,48 @@ class Apps:
                 "success": False,
                 "msg": "Internal server error"
             }
+
+    def updateDataServer(self, **data):
+        try:
+            parts = []
+            try:
+                data["name"]
+                for i in data:
+                    parts.append(f"{i}='{data[i]}'")
+                return requests.post(
+                    f"{self.url}/post/custom",
+                    data={
+                        "query": f"UPDATE data_servers SET {', '.join(parts)} WHERE name='{data['name']}'"
+                    }
+                ).json()
+            except KeyError:
+                return {
+                    "success": False,
+                    "msg": "Please enter the name of server"
+                }
+        except requests.exceptions.JSONDecodeError:
+            return {
+                "success": False,
+                "msg": "Internal server error"
+            }
+
+    def getDataServer(self, **data):
+        try:
+            data["name"]
+            req = requests.get(
+                f"{self.url}/get/servers?name={data['name']}"
+            ).json()
+            return req
+        except requests.exceptions.JSONDecodeError:
+            return {
+                "success": False,
+                "msg": "Internal server error"
+            }
+        except KeyError:
+            return requests.get(
+                f"{self.url}/get/servers"
+            ).json()
+
 
 class Console:
     def log(prefix, msg):
@@ -168,3 +231,10 @@ class System:
             open(self.file, "rb").read(),
             str(types).encode()
         )
+
+    def convertBytes(size, precision=1):
+        if size == 0:
+            return "0B"
+        abbrevs = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+        i = int(math.floor(math.log(size * 1024 * 1024, 1024)))
+        return f"{size * 1024 * 1024 / (1024 ** i):.{precision}f}{abbrevs[i]}"
